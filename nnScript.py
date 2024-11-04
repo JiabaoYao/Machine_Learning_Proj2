@@ -3,7 +3,7 @@ from scipy.optimize import minimize
 from scipy.io import loadmat
 from math import sqrt
 import numpy as np
-
+import pickle
 
 def initializeWeights(n_in, n_out):
     """
@@ -51,7 +51,7 @@ def preprocess():
      Some suggestions for preprocessing step:
      - feature selection"""
 
-    mat = loadmat('mnist_all.mat')  # loads the MAT object as a Dictionary
+    mat = loadmat('/Users/jiabaoyao/Study Abroad/Projects/Machine Learning/Proj_2/Machine_Learning_Proj2/mnist_all.mat')  # loads the MAT object as a Dictionary
 
     # Pick a reasonable size for validation data
 
@@ -126,7 +126,16 @@ def preprocess():
     test_label = test_label_preprocess[test_perm]
 
     # Feature selection
-    # Your code here.
+    diff_cols = np.diff(train_data, axis = 0) # calculate the difference between adjacent pixels
+    diff_select = np.any(diff_cols, axis = 0) # select the columns with difference (boolean array)
+
+    train_data = train_data[:, diff_select] # selects only the columns (features) in train_data that have variation
+    selected_indices = np.where(diff_select)[0] # stores the indices of the selected features, which is then used to filter validation_data and test_data to ensure consistency
+    validation_data = validation_data[:, selected_indices]
+    test_data = test_data[:, selected_indices]
+
+    # Save selected indices
+    # np.savetxt('selected_indices.txt', selected_indices, fmt = '%d')
 
     print('preprocess done')
 
@@ -176,20 +185,42 @@ def nnObjFunction(params, *args):
     w1 = params[0:n_hidden * (n_input + 1)].reshape((n_hidden, (n_input + 1)))
     w2 = params[(n_hidden * (n_input + 1)):].reshape((n_class, (n_hidden + 1)))
     obj_val = 0
+    n = training_data.shape[0] # n examples
 
-    # Your code here
-    #
-    #
-    #
-    #
-    #
+    # Add bias to training_data
+    training_data = np.hstack((training_data, np.ones((n, 1))))
 
+    # Forward propagation and add bias to hidden layer
+    z = sigmoid(np.dot(training_data, w1.T))
+    z = np.hstack((z, np.ones((z.shape[0], 1))))
 
+    # Output layer activation
+    o = sigmoid(np.dot(z, w2.T))
+
+    # Training label encoding by one-hot
+    y = np.zeros((n, n_class))
+    y[np.arange(n), training_label.astype(int)] = 1 # shape is (n examples, n_class)
+
+    # Likelihood error function with regularization
+    log_likelihood = -np.sum(y * np.log(o) + (1 - y) * np.log(1 - o)) / n
+    regularization = (lambdaval / (2 * n)) * (np.sum(w1**2) + np.sum(w2**2))
+    # Compute the regularized objective function
+    obj_val = log_likelihood + regularization
+
+    # Backprogation
+    delta = o - y # error term for output layer
+    grad_w2 = (np.dot(delta.T, z) / n) + (lambdaval / n) * w2
+
+    # Error term for hidden layer
+    hidden_error = (1 - z) * z * np.dot(delta, w2)
+    hidden_error = hidden_error[:, :-1] # remove bias term
+
+    grad_w1 = (np.dot(hidden_error.T, training_data) / n) + (lambdaval / n) * w1
 
     # Make sure you reshape the gradient matrices to a 1D array. for instance if your gradient matrices are grad_w1 and grad_w2
     # you would use code similar to the one below to create a flat array
-    # obj_grad = np.concatenate((grad_w1.flatten(), grad_w2.flatten()),0)
-    obj_grad = np.array([])
+    obj_grad = np.concatenate((grad_w1.flatten(), grad_w2.flatten()),0)
+    # obj_grad = np.array([])
 
     return (obj_val, obj_grad)
 
@@ -212,7 +243,18 @@ def nnPredict(w1, w2, data):
     % label: a column vector of predicted labels"""
 
     labels = np.array([])
-    # Your code here
+
+    # Add bias to input layer
+    data = np.hstack((data, np.ones((data.shape[0], 1))))
+
+    # Forward propagation to hidden layer
+    z = sigmoid(np.dot(data, w1.T))
+    z = np.hstack((z, np.ones((z.shape[0], 1)))) # add bias
+
+    # Forward propagation to output layer
+    o = sigmoid(np.dot(z, w2.T))
+
+    labels = np.argmax(o, axis = 1)
 
     return labels
 
