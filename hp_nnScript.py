@@ -4,6 +4,11 @@ from scipy.io import loadmat
 from math import sqrt
 import numpy as np
 import pickle
+import time
+
+pickle_selected_features = []
+
+
 
 def initializeWeights(n_in, n_out):
     """
@@ -51,7 +56,7 @@ def preprocess():
      Some suggestions for preprocessing step:
      - feature selection"""
 
-    mat = loadmat('/Users/jiabaoyao/Study Abroad/Projects/Machine Learning/Proj_2/Machine_Learning_Proj2/mnist_all.mat')  # loads the MAT object as a Dictionary
+    mat = loadmat('mnist_all.mat')
 
     # Pick a reasonable size for validation data
 
@@ -136,6 +141,14 @@ def preprocess():
 
     # Save selected indices
     # np.savetxt('selected_indices.txt', selected_indices, fmt = '%d')
+    pickle_selected_features = selected_indices
+    with open('params.pickle', 'wb') as f:
+  
+      params = {
+        'selected_features': pickle_selected_features,
+      }
+      print(f"Saved Params: {params}")
+      pickle.dump(params, f)
 
     print('preprocess done')
 
@@ -268,55 +281,110 @@ train_data, train_label, validation_data, validation_label, test_data, test_labe
 # set the number of nodes in input unit (not including bias unit)
 n_input = train_data.shape[1]
 
-# set the number of nodes in hidden unit (not including bias unit)
-n_hidden = 54
-
 # set the number of nodes in output unit
 n_class = 10
 
-# initialize the weights into some random matrices
-initial_w1 = initializeWeights(n_input, n_hidden)
-initial_w2 = initializeWeights(n_hidden, n_class)
+# set the number of nodes in hidden unit (not including bias unit)
+# n_hidden_range = [i for i in range(0, 60, 4)]
+n_hidden_range = [i for i in range(40, 56, 2)]
 
-# unroll 2 weight matrices into single column vector
-initialWeights = np.concatenate((initial_w1.flatten(), initial_w2.flatten()), 0)
 
 # set the regularization hyper-parameter
-lambdaval = 25
+# lambdaval_range = [i for i in range(0, 60, 10)]
+lambdaval_range = [i for i in range(0, 30, 5)]
 
-args = (n_input, n_hidden, n_class, train_data, train_label, lambdaval)
+best_n_hidden, best_lambdaval = 0, 0
+best_accuracy = 0
+best_w1, best_w2 = None, None
+training_times = {n: [] for n in n_hidden_range}
+training_accuracy_list = []
 
-# Train Neural Network using fmin_cg or minimize from scipy,optimize module. Check documentation for a working example
+for n_hidden in n_hidden_range:
+    for lambdaval in lambdaval_range:
+        print(f"Training with n_hidden = {n_hidden} and lambdaval = {lambdaval}")
 
-opts = {'maxiter': 50}  # Preferred value.
+        start_time = time.time()
+        # initialize the weights into some random matrices
+        initial_w1 = initializeWeights(n_input, n_hidden)
+        initial_w2 = initializeWeights(n_hidden, n_class)
 
-nn_params = minimize(nnObjFunction, initialWeights, jac=True, args=args, method='CG', options=opts)
-
-# In Case you want to use fmin_cg, you may have to split the nnObjectFunction to two functions nnObjFunctionVal
-# and nnObjGradient. Check documentation for this function before you proceed.
-# nn_params, cost = fmin_cg(nnObjFunctionVal, initialWeights, nnObjGradient,args = args, maxiter = 50)
+        # unroll 2 weight matrices into single column vector
+        initialWeights = np.concatenate((initial_w1.flatten(), initial_w2.flatten()), 0)
 
 
-# Reshape nnParams from 1D vector into w1 and w2 matrices
-w1 = nn_params.x[0:n_hidden * (n_input + 1)].reshape((n_hidden, (n_input + 1)))
-w2 = nn_params.x[(n_hidden * (n_input + 1)):].reshape((n_class, (n_hidden + 1)))
+        args = (n_input, n_hidden, n_class, train_data, train_label, lambdaval)
 
-# Test the computed parameters
+        # Train Neural Network using fmin_cg or minimize from scipy,optimize module. Check documentation for a working example
+        opts = {'maxiter': 50}  # Preferred value.
+        nn_params = minimize(nnObjFunction, initialWeights, jac=True, args=args, method='CG', options=opts)
 
-predicted_label = nnPredict(w1, w2, train_data)
+        # In Case you want to use fmin_cg, you may have to split the nnObjectFunction to two functions nnObjFunctionVal
+        # and nnObjGradient. Check documentation for this function before you proceed.
+        # nn_params, cost = fmin_cg(nnObjFunctionVal, initialWeights, nnObjGradient,args = args, maxiter = 50)
 
-# find the accuracy on Training Dataset
 
-print('\n Training set Accuracy:' + str(100 * np.mean((predicted_label == train_label).astype(float))) + '%')
+        # Reshape nnParams from 1D vector into w1 and w2 matrices
+        w1 = nn_params.x[0:n_hidden * (n_input + 1)].reshape((n_hidden, (n_input + 1)))
+        w2 = nn_params.x[(n_hidden * (n_input + 1)):].reshape((n_class, (n_hidden + 1)))
 
-predicted_label = nnPredict(w1, w2, validation_data)
+        # Test the computed parameters
+        predicted_label = nnPredict(w1, w2, train_data)
+        # find the accuracy on Training Dataset
+        print('\n Training set Accuracy:' + str(100 * np.mean((predicted_label == train_label).astype(float))) + '%')
 
+        predicted_label = nnPredict(w1, w2, validation_data)
+        # find the accuracy on Validation Dataset
+        accuracy = 100 * np.mean((predicted_label == validation_label).astype(float))
+        print('\n Validation set Accuracy:' + str(100 * np.mean((predicted_label == validation_label).astype(float))) + '%')
+
+        training_accuracy_list.append([n_hidden, lambdaval, accuracy])
+
+        # End time
+        end_time = time.time()
+        training_time = end_time - start_time
+        training_times[n_hidden].append((lambdaval, training_time))
+        print(f"Traing time for n_hidden = {n_hidden} and lambdaval = {lambdaval}: {training_time}")
+
+        if accuracy > best_accuracy:
+            best_accuracy = accuracy
+            best_n_hidden = n_hidden
+            best_lambdaval = lambdaval
+            best_w1 = w1
+            best_w2 = w2
+
+print(f"Best parameters: n_hidden = {best_n_hidden}, lambdaval = {best_lambdaval}")
+print(f"Best validation accuracy: {best_accuracy}")
+pickle_n_hidden = n_hidden
+pickle_w1 = w1
+pickle_w2 = w2
+pickle_λ = lambdaval
+pickle_selected_features = []
+with open('params.pickle', 'rb') as f:
+  p = pickle.load(f)
+  pickle_selected_features = p.get('selected_features')
+
+
+with open('params.pickle', 'wb') as f:
+    params = {
+      'selected_features': pickle_selected_features,
+      'n_hidden': pickle_n_hidden,
+      'w1': pickle_w1,
+      'w2': pickle_w2,
+      'λ': pickle_λ
+    }
+    print(f"Saved Params: {params}")
+    pickle.dump(params, f)
+
+predicted_label = nnPredict(best_w1, best_w2, test_data)
 # find the accuracy on Validation Dataset
-
-print('\n Validation set Accuracy:' + str(100 * np.mean((predicted_label == validation_label).astype(float))) + '%')
-
-predicted_label = nnPredict(w1, w2, test_data)
-
-# find the accuracy on Validation Dataset
-
 print('\n Test set Accuracy:' + str(100 * np.mean((predicted_label == test_label).astype(float))) + '%')
+
+# Save the training times in a list format compatible with np.savetxt
+training_time_list = []
+for n_hidden, times in training_times.items():  # Use .items() to iterate over dictionary items
+    for lambdaval, training_time in times:
+        training_time_list.append([n_hidden, lambdaval, training_time])
+
+# Save the data to text files
+np.savetxt('nn_training_time_record.txt', training_time_list, fmt='%d, %d, %.4f', header='n_hidden, lambdaval, training_time')
+np.savetxt('nn_training_accuracy_record.txt', training_accuracy_list, fmt='%d, %d, %.4f', header='n_hidden, lambdaval, accuracy')

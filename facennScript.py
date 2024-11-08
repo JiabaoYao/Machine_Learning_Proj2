@@ -4,6 +4,8 @@ Comparing single layer MLP with deep MLP (using TensorFlow)
 
 import numpy as np
 import pickle
+from math import sqrt
+from scipy.optimize import minimize
 
 # Do not change this
 def initializeWeights(n_in,n_out):
@@ -25,12 +27,126 @@ def initializeWeights(n_in,n_out):
 
 # Replace this with your sigmoid implementation
 def sigmoid(z):
+    """# Notice that z can be a scalar, a vector or a matrix
+    # return the sigmoid of input z"""
+
+    return (1 / (1 + np.exp(-z)))
 # Replace this with your nnObjFunction implementation
 def nnObjFunction(params, *args):
+    """% nnObjFunction computes the value of objective function (negative log 
+    %   likelihood error function with regularization) given the parameters 
+    %   of Neural Networks, thetraining data, their corresponding training 
+    %   labels and lambda - regularization hyper-parameter.
+
+    % Input:
+    % params: vector of weights of 2 matrices w1 (weights of connections from
+    %     input layer to hidden layer) and w2 (weights of connections from
+    %     hidden layer to output layer) where all of the weights are contained
+    %     in a single vector.
+    % n_input: number of node in input layer (not include the bias node)
+    % n_hidden: number of node in hidden layer (not include the bias node)
+    % n_class: number of node in output layer (number of classes in
+    %     classification problem
+    % training_data: matrix of training data. Each row of this matrix
+    %     represents the feature vector of a particular image
+    % training_label: the vector of truth label of training images. Each entry
+    %     in the vector represents the truth label of its corresponding image.
+    % lambda: regularization hyper-parameter. This value is used for fixing the
+    %     overfitting problem.
+       
+    % Output: 
+    % obj_val: a scalar value representing value of error function
+    % obj_grad: a SINGLE vector of gradient value of error function
+    % NOTE: how to compute obj_grad
+    % Use backpropagation algorithm to compute the gradient of error function
+    % for each weights in weight matrices.
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % reshape 'params' vector into 2 matrices of weight w1 and w2
+    % w1: matrix of weights of connections from input layer to hidden layers.
+    %     w1(i, j) represents the weight of connection from unit j in input 
+    %     layer to unit i in hidden layer.
+    % w2: matrix of weights of connections from hidden layer to output layers.
+    %     w2(i, j) represents the weight of connection from unit j in hidden 
+    %     layer to unit i in output layer."""
+
+    n_input, n_hidden, n_class, training_data, training_label, lambdaval = args
+
+    w1 = params[0:n_hidden * (n_input + 1)].reshape((n_hidden, (n_input + 1)))
+    w2 = params[(n_hidden * (n_input + 1)):].reshape((n_class, (n_hidden + 1)))
+    obj_val = 0
+    n = training_data.shape[0] # n examples
+
+    # Add bias to training_data
+    training_data = np.hstack((training_data, np.ones((n, 1))))
+
+    # Forward propagation and add bias to hidden layer
+    z = sigmoid(np.dot(training_data, w1.T))
+    z = np.hstack((z, np.ones((z.shape[0], 1))))
+
+    # Output layer activation
+    o = sigmoid(np.dot(z, w2.T))
+
+    # Training label encoding by one-hot
+    y = np.zeros((n, n_class))
+    y[np.arange(n), training_label.astype(int)] = 1 # shape is (n examples, n_class)
+
+    # Likelihood error function with regularization
+    log_likelihood = -np.sum(y * np.log(o) + (1 - y) * np.log(1 - o)) / n
+    regularization = (lambdaval / (2 * n)) * (np.sum(w1**2) + np.sum(w2**2))
+    # Compute the regularized objective function
+    obj_val = log_likelihood + regularization
+
+    # Backprogation
+    delta = o - y # error term for output layer
+    grad_w2 = (np.dot(delta.T, z) / n) + (lambdaval / n) * w2
+
+    # Error term for hidden layer
+    hidden_error = (1 - z) * z * np.dot(delta, w2)
+    hidden_error = hidden_error[:, :-1] # remove bias term
+
+    grad_w1 = (np.dot(hidden_error.T, training_data) / n) + (lambdaval / n) * w1
+
+    # Make sure you reshape the gradient matrices to a 1D array. for instance if your gradient matrices are grad_w1 and grad_w2
+    # you would use code similar to the one below to create a flat array
+    obj_grad = np.concatenate((grad_w1.flatten(), grad_w2.flatten()),0)
+    # obj_grad = np.array([])
+
+    return (obj_val, obj_grad)
     
 # Replace this with your nnPredict implementation
-def nnPredict(w1,w2,data):
+def nnPredict(w1, w2, data):
+    """% nnPredict predicts the label of data given the parameter w1, w2 of Neural
+    % Network.
 
+    % Input:
+    % w1: matrix of weights of connections from input layer to hidden layers.
+    %     w1(i, j) represents the weight of connection from unit i in input 
+    %     layer to unit j in hidden layer.
+    % w2: matrix of weights of connections from hidden layer to output layers.
+    %     w2(i, j) represents the weight of connection from unit i in input 
+    %     layer to unit j in hidden layer.
+    % data: matrix of data. Each row of this matrix represents the feature 
+    %       vector of a particular image
+       
+    % Output: 
+    % label: a column vector of predicted labels"""
+
+    labels = np.array([])
+
+    # Add bias to input layer
+    data = np.hstack((data, np.ones((data.shape[0], 1))))
+
+    # Forward propagation to hidden layer
+    z = sigmoid(np.dot(data, w1.T))
+    z = np.hstack((z, np.ones((z.shape[0], 1)))) # add bias
+
+    # Forward propagation to output layer
+    o = sigmoid(np.dot(z, w2.T))
+
+    labels = np.argmax(o, axis = 1)
+
+    return labels
 # Do not change this
 def preprocess():
     pickle_obj = pickle.load(file=open('face_all.pickle', 'rb'))

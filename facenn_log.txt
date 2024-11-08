@@ -1,0 +1,6 @@
+
+ Training set Accuracy:86.32701421800948%
+
+ Validation set Accuracy:85.29080675422139%
+
+ Test set Accuracy:86.41180923542771%

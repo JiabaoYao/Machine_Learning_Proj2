@@ -23,7 +23,7 @@ sns.heatmap(accuracy_heatmap_pivot, annot=True, cmap="YlGnBu", fmt=".2f", cbar=T
 plt.title("Heatmap of Validation Accuracies")
 plt.ylabel("Number of Hidden Units (n_hidden)")
 plt.xlabel("Lambda (Regularization Parameter)")
-plt.show()
+plt.savefig("accuracy_heatmap.png")
 
 
 
@@ -48,4 +48,4 @@ plt.xlabel("Number of Hidden Units (n_hidden)", fontsize=14, fontweight ='bold')
 plt.ylabel("Training Time (s)", fontsize = 14, fontweight='bold')
 plt.grid(visible = True, which = 'both', color = 'gray', linestyle = '--', linewidth = 0.5)
 plt.fill_between(n_hidden, times, color='lightblue', alpha=0.3)
-plt.show()
+plt.savefig("time_plot.png")

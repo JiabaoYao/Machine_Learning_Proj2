@@ -1,0 +1,3 @@
+Optimization Finished!
+Time taken: 22.835124015808105
+Accuracy: 0.8186979
