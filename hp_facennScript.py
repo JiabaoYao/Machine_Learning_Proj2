@@ -94,7 +94,7 @@ def nnObjFunction(params, *args):
 
     # Likelihood error function with regularization
     log_likelihood = -np.sum(y * np.log(o) + (1 - y) * np.log(1 - o)) / n
-    regularization = (lambdaval / (2 * n)) * (np.sum(w1**2) + np.sum(w2**2))
+    regularization = (lambdaval / (2 * n)) * (np.square(w1).sum() + np.square(w2).sum())
     # Compute the regularized objective function
     obj_val = log_likelihood + regularization
 
@@ -169,37 +169,81 @@ train_data, train_label, validation_data, validation_label, test_data, test_labe
 # set the number of nodes in input unit (not including bias unit)
 n_input = train_data.shape[1]
 # set the number of nodes in hidden unit (not including bias unit)
-n_hidden = 256
-# set the number of nodes in output unit
-n_class = 2
 
-# initialize the weights into some random matrices
-initial_w1 = initializeWeights(n_input, n_hidden);
-initial_w2 = initializeWeights(n_hidden, n_class);
-# unroll 2 weight matrices into single column vector
-initialWeights = np.concatenate((initial_w1.flatten(), initial_w2.flatten()),0)
+n_hidden_range = [i for i in range(10, 200, 10)]
+
+
 # set the regularization hyper-parameter
-lambdaval = 10;
-args = (n_input, n_hidden, n_class, train_data, train_label, lambdaval)
+# lambdaval_range = [i for i in range(0, 60, 10)]
+lambdaval_range = [i for i in range(0, 100, 10)]
 
-#Train Neural Network using fmin_cg or minimize from scipy,optimize module. Check documentation for a working example
-opts = {'maxiter' :50}    # Preferred value.
-startTime = time.time()
-nn_params = minimize(nnObjFunction, initialWeights, jac=True, args=args,method='CG', options=opts)
-endTime = time.time() - startTime
-print('Time taken to train: ' + str(endTime) + ' seconds.')
-params = nn_params.get('x')
-#Reshape nnParams from 1D vector into w1 and w2 matrices
-w1 = params[0:n_hidden * (n_input + 1)].reshape( (n_hidden, (n_input + 1)))
-w2 = params[(n_hidden * (n_input + 1)):].reshape((n_class, (n_hidden + 1)))
 
-#Test the computed parameters
-predicted_label = nnPredict(w1,w2,train_data)
-#find the accuracy on Training Dataset
-print('\n Training set Accuracy:' + str(100*np.mean((predicted_label == train_label).astype(float))) + '%')
-predicted_label = nnPredict(w1,w2,validation_data)
-#find the accuracy on Validation Dataset
-print('\n Validation set Accuracy:' + str(100*np.mean((predicted_label == validation_label).astype(float))) + '%')
-predicted_label = nnPredict(w1,w2,test_data)
-#find the accuracy on Validation Dataset
-print('\n Test set Accuracy:' +  str(100*np.mean((predicted_label == test_label).astype(float))) + '%')
+best_n_hidden, best_lambdaval = 0, 0
+best_accuracy = 0
+best_w1, best_w2 = None, None
+training_times = {n: [] for n in n_hidden_range}
+training_accuracy_list = []
+
+for n_hidden in n_hidden_range:
+    for lambdaval in lambdaval_range:
+
+
+        # set the number of nodes in output unit
+        n_class = 2
+
+        # initialize the weights into some random matrices
+        initial_w1 = initializeWeights(n_input, n_hidden);
+        initial_w2 = initializeWeights(n_hidden, n_class);
+        # unroll 2 weight matrices into single column vector
+        initialWeights = np.concatenate((initial_w1.flatten(), initial_w2.flatten()),0)
+        # set the regularization hyper-parameter
+        args = (n_input, n_hidden, n_class, train_data, train_label, lambdaval)
+
+        #Train Neural Network using fmin_cg or minimize from scipy,optimize module. Check documentation for a working example
+        opts = {'maxiter' :50}    # Preferred value.
+
+        start_time = time.time()
+        nn_params = minimize(nnObjFunction, initialWeights, jac=True, args=args,method='CG', options=opts)
+        params = nn_params.get('x')
+        #Reshape nnParams from 1D vector into w1 and w2 matrices
+        w1 = params[0:n_hidden * (n_input + 1)].reshape( (n_hidden, (n_input + 1)))
+        w2 = params[(n_hidden * (n_input + 1)):].reshape((n_class, (n_hidden + 1)))
+
+        #Test the computed parameters
+        predicted_label = nnPredict(w1,w2,train_data)
+        #find the accuracy on Training Dataset
+        training_accuracy = 100*np.mean((predicted_label == train_label).astype(float))
+        print('\n Training set Accuracy:' + str(training_accuracy) + '%')
+        predicted_label = nnPredict(w1,w2,validation_data)
+        #find the accuracy on Validation Dataset
+        accuracy = 100*np.mean((predicted_label == validation_label).astype(float))
+        print('\n Validation set Accuracy:' + str(accuracy) + '%')
+            
+        training_accuracy_list.append([n_hidden, lambdaval, accuracy, training_accuracy])
+        end_time = time.time()
+        training_time = end_time - start_time
+        training_times[n_hidden].append((lambdaval, training_time))
+       
+        if accuracy > best_accuracy:
+            best_accuracy = accuracy
+            best_n_hidden = n_hidden
+            best_lambdaval = lambdaval
+            best_w1 = w1
+            best_w2 = w2
+        predicted_label = nnPredict(w1,w2,test_data)
+        #find the accuracy on Validation Dataset
+        print('\n Test set Accuracy:' +  str(100*np.mean((predicted_label == test_label).astype(float))) + '%')
+
+predicted_label = nnPredict(best_w1, best_w2, test_data)
+# find the accuracy on Validation Dataset
+print('\n Test set Accuracy:' + str(100 * np.mean((predicted_label == test_label).astype(float))) + '%')
+
+# Save the training times in a list format compatible with np.savetxt
+training_time_list = []
+for n_hidden, times in training_times.items():  # Use .items() to iterate over dictionary items
+    for lambdaval, training_time in times:
+        training_time_list.append([n_hidden, lambdaval, training_time])
+
+# Save the data to text files
+np.savetxt('face_nn_training_time_record_bigrange.txt', training_time_list, fmt='%d, %d, %.4f', header='n_hidden, lambdaval, training_time')
+np.savetxt('face_nn_training_accuracy_record_bigrange.txt', training_accuracy_list, fmt='%d, %d, %.4f', header='n_hidden, lambdaval, accuracy')

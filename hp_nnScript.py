@@ -7,8 +7,9 @@ import pickle
 import time
 
 pickle_selected_features = []
+suffix = 'lambda_0_20_2'
 
-
+pickel_file = f'params_{suffix}.pickle'
 
 def initializeWeights(n_in, n_out):
     """
@@ -142,7 +143,7 @@ def preprocess():
     # Save selected indices
     # np.savetxt('selected_indices.txt', selected_indices, fmt = '%d')
     pickle_selected_features = selected_indices
-    with open('params.pickle', 'wb') as f:
+    with open(pickel_file, 'wb') as f:
   
       params = {
         'selected_features': pickle_selected_features,
@@ -216,7 +217,7 @@ def nnObjFunction(params, *args):
 
     # Likelihood error function with regularization
     log_likelihood = -np.sum(y * np.log(o) + (1 - y) * np.log(1 - o)) / n
-    regularization = (lambdaval / (2 * n)) * (np.sum(w1**2) + np.sum(w2**2))
+    regularization = (lambdaval / (2 * n)) * (np.square(w1).sum() + np.square(w2).sum())
     # Compute the regularized objective function
     obj_val = log_likelihood + regularization
 
@@ -286,12 +287,12 @@ n_class = 10
 
 # set the number of nodes in hidden unit (not including bias unit)
 # n_hidden_range = [i for i in range(0, 60, 4)]
-n_hidden_range = [i for i in range(40, 56, 2)]
+n_hidden_range = [100]
 
 
 # set the regularization hyper-parameter
 # lambdaval_range = [i for i in range(0, 60, 10)]
-lambdaval_range = [i for i in range(0, 30, 5)]
+lambdaval_range = [i for i in range(0, 21, 2)]
 
 best_n_hidden, best_lambdaval = 0, 0
 best_accuracy = 0
@@ -330,14 +331,15 @@ for n_hidden in n_hidden_range:
         # Test the computed parameters
         predicted_label = nnPredict(w1, w2, train_data)
         # find the accuracy on Training Dataset
-        print('\n Training set Accuracy:' + str(100 * np.mean((predicted_label == train_label).astype(float))) + '%')
+        training_accuracy = 100 * np.mean((predicted_label == train_label).astype(float))
+        print('\n Training set Accuracy:' + str(training_accuracy) + '%')
 
         predicted_label = nnPredict(w1, w2, validation_data)
         # find the accuracy on Validation Dataset
         accuracy = 100 * np.mean((predicted_label == validation_label).astype(float))
         print('\n Validation set Accuracy:' + str(100 * np.mean((predicted_label == validation_label).astype(float))) + '%')
 
-        training_accuracy_list.append([n_hidden, lambdaval, accuracy])
+        training_accuracy_list.append([n_hidden, lambdaval, accuracy, training_accuracy])
 
         # End time
         end_time = time.time()
@@ -354,17 +356,17 @@ for n_hidden in n_hidden_range:
 
 print(f"Best parameters: n_hidden = {best_n_hidden}, lambdaval = {best_lambdaval}")
 print(f"Best validation accuracy: {best_accuracy}")
-pickle_n_hidden = n_hidden
-pickle_w1 = w1
-pickle_w2 = w2
-pickle_λ = lambdaval
+pickle_n_hidden = best_n_hidden
+pickle_w1 = best_w1
+pickle_w2 = best_w2
+pickle_λ = best_lambdaval
 pickle_selected_features = []
-with open('params.pickle', 'rb') as f:
+with open(pickel_file, 'rb') as f:
   p = pickle.load(f)
   pickle_selected_features = p.get('selected_features')
 
 
-with open('params.pickle', 'wb') as f:
+with open(pickel_file, 'wb') as f:
     params = {
       'selected_features': pickle_selected_features,
       'n_hidden': pickle_n_hidden,
@@ -386,5 +388,5 @@ for n_hidden, times in training_times.items():  # Use .items() to iterate over d
         training_time_list.append([n_hidden, lambdaval, training_time])
 
 # Save the data to text files
-np.savetxt('nn_training_time_record.txt', training_time_list, fmt='%d, %d, %.4f', header='n_hidden, lambdaval, training_time')
-np.savetxt('nn_training_accuracy_record.txt', training_accuracy_list, fmt='%d, %d, %.4f', header='n_hidden, lambdaval, accuracy')
+np.savetxt(f'nn_training_time_record_{suffix}.txt', training_time_list, fmt='%d, %.4f, %.4f', header='n_hidden, lambdaval, training_time')
+np.savetxt(f'nn_training_accuracy_record_{suffix}.txt', training_accuracy_list, fmt='%d, %.4f, %.4f, %.4f', header='n_hidden, lambdaval, accuracy, training_accuracy')

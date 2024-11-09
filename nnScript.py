@@ -5,6 +5,8 @@ from math import sqrt
 import numpy as np
 import pickle
 
+pickle_selected_features =  []
+
 def initializeWeights(n_in, n_out):
     """
     # initializeWeights return the random weights for Neural Network given the
@@ -51,7 +53,7 @@ def preprocess():
      Some suggestions for preprocessing step:
      - feature selection"""
 
-    mat = loadmat('/Users/jiabaoyao/Study Abroad/Projects/Machine Learning/Proj_2/Machine_Learning_Proj2/mnist_all.mat')  # loads the MAT object as a Dictionary
+    mat = loadmat('mnist_all.mat')  # loads the MAT object as a Dictionary
 
     # Pick a reasonable size for validation data
 
@@ -133,10 +135,13 @@ def preprocess():
     selected_indices = np.where(diff_select)[0] # stores the indices of the selected features, which is then used to filter validation_data and test_data to ensure consistency
     validation_data = validation_data[:, selected_indices]
     test_data = test_data[:, selected_indices]
-
+    pickle_selected_features = selected_indices
     # Save selected indices
     # np.savetxt('selected_indices.txt', selected_indices, fmt = '%d')
-
+    with open('pickle_result.pickle', 'wb') as f:
+        p = {'selected_features': pickle_selected_features}
+        print('Saving selected features to pickle file', p)
+        pickle.dump(p, f)
     print('preprocess done')
 
     return train_data, train_label, validation_data, validation_label, test_data, test_label
@@ -269,7 +274,7 @@ train_data, train_label, validation_data, validation_label, test_data, test_labe
 n_input = train_data.shape[1]
 
 # set the number of nodes in hidden unit (not including bias unit)
-n_hidden = 54
+n_hidden = 100
 
 # set the number of nodes in output unit
 n_class = 10
@@ -282,7 +287,7 @@ initial_w2 = initializeWeights(n_hidden, n_class)
 initialWeights = np.concatenate((initial_w1.flatten(), initial_w2.flatten()), 0)
 
 # set the regularization hyper-parameter
-lambdaval = 25
+lambdaval = 0.5
 
 args = (n_input, n_hidden, n_class, train_data, train_label, lambdaval)
 
@@ -313,10 +318,30 @@ predicted_label = nnPredict(w1, w2, validation_data)
 
 # find the accuracy on Validation Dataset
 
-print('\n Validation set Accuracy:' + str(100 * np.mean((predicted_label == validation_label).astype(float))) + '%')
+validation_acc = 100 * np.mean((predicted_label == validation_label).astype(float))
+print('\n Validation set Accuracy:' + str(validation_acc) + '%')
 
 predicted_label = nnPredict(w1, w2, test_data)
 
 # find the accuracy on Validation Dataset
+test_acc = 100 * np.mean((predicted_label == test_label).astype(float))
+print('\n Test set Accuracy:' + str(test_acc) + '%')
 
-print('\n Test set Accuracy:' + str(100 * np.mean((predicted_label == test_label).astype(float))) + '%')
+
+if validation_acc >= 95.0 and test_acc >= 95.0:
+  print('Validation and Test accuracy are above 95%')
+  feature = []
+  with open('pickle_result.pickle', 'rb') as f:
+    params = pickle.load(f)
+    feature = params['selected_features']
+    print('Selected features:', feature)
+  with open('params_result.pickle', 'wb') as f:
+      params = {
+        'selected_features': feature,
+        'n_hidden': 100,
+        'w1': w1,
+        'w2': w2,
+        'λ': 0.5
+      }
+      print('Saving params to pickle file', params)
+      pickle.dump(params, f)

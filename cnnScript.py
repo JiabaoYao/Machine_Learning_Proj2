@@ -281,7 +281,7 @@ def plot_images(images, cls_true, cls_pred=None):
     
     # Ensure the plot is shown correctly with multiple plots
     # in a single Notebook cell.
-    plt.show()
+    plt.savefig('images.png')
 
 def plot_example_errors(cls_pred, correct):
     # This function is called from print_test_accuracy() below.
@@ -339,10 +339,10 @@ def plot_confusion_matrix(cls_pred):
 
     # Ensure the plot is shown correctly with multiple plots
     # in a single Notebook cell.
-    plt.show()
+    plt.savefig('confusion_matrix.png')
 
-def print_test_accuracy(show_example_errors=False,
-                        show_confusion_matrix=False):
+def print_test_accuracy(show_example_errors=True,
+                        show_confusion_matrix=True):
 
     # Number of images in the test-set.
     num_test = len(data.test.images)
